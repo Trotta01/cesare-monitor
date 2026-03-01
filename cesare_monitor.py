@@ -1,61 +1,66 @@
 import asyncio
 import aiohttp
-import json
-import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# CONFIG - MODIFICA
 MONITOR_TOKEN = "8636882217:AAHpPBwS6_Qbb4KIM5enrsgtzoku3pBa3_M"
 GROUP_CHAT_ID = -1003078713466
 OFFLINE_STICKER = "CAACAgQAAxkBAAEQpnJppASLZc9lzdQqbIoQXwMltjR_dAAC8h0AAqk5IFHx-i33-nbh0DoE"
-ONLINE_STICKER = "CAACAgQAAxkBAAEQpnRppAT16OxIp6u00djb3F-AAuiv3gACKCAAAvrNIFHPf12iheKncjoE"
-STATUS_FILE_URL = "https://TUO_GIST_O_REPLIT_RAW_URL/bot_status.json"  # Crea Gist o file pubblico
+STATUS_FILE_URL = "https://gist.githubusercontent.com/Trotta01/a1b054dd232743b33523184250ff970c/raw/2e35c3f16c1d8267311773a9d26998534e7bdc0d/gistfile1.txt"
 
 was_online = True
+
 
 async def check_cesare():
     global was_online
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(STATUS_FILE_URL, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(
+                total=10)) as session:
+            async with session.get(STATUS_FILE_URL) as resp:
                 status = await resp.json()
         is_online = status.get("is_online", False)
         if was_online and not is_online:
             print("🚨 Cesare OFFLINE!")
+            await asyncio.sleep(1)  # Anti-flood
             bot = Application.builder().token(MONITOR_TOKEN).build().bot
             await bot.send_sticker(GROUP_CHAT_ID, OFFLINE_STICKER)
-            await bot.send_message(GROUP_CHAT_ID, "🚨 Cesare è andato in crash!")
+            await bot.send_message(GROUP_CHAT_ID,
+                                   "🚨 Cesare è andato in crash!")
         was_online = is_online
         return is_online
-    except Exception as e:
-        print(f"Errore check: {e}")
+    except:
         return False
 
-async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def status_cmd(update: Update, context):
     status = "🟢 ONLINE" if await check_cesare() else "🔴 OFFLINE"
     await update.message.reply_text(f"Cesare: {status}")
 
-async def test_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bot = context.bot
-    await bot.send_sticker(GROUP_CHAT_ID, OFFLINE_STICKER)
-    await update.message.reply_text("🧪 Sticker test inviato!")
 
-async def monitor_loop(application: Application):
-    while True:
-        await check_cesare()
-        await asyncio.sleep(30)
+async def test_cmd(update: Update, context):
+    await context.bot.send_sticker(GROUP_CHAT_ID, OFFLINE_STICKER)
+    await update.message.reply_text("🧪 Test OK!")
+
 
 async def main():
     app = Application.builder().token(MONITOR_TOKEN).build()
     app.add_handler(CommandHandler("status", status_cmd))
     app.add_handler(CommandHandler("test", test_cmd))
 
-    # Avvia monitor in background
-    asyncio.create_task(monitor_loop(app))
+    # Timer check ogni 30s (no loop infinito)
+    async def periodic_check():
+        while True:
+            await check_cesare()
+            await asyncio.sleep(30)
 
-    print("🟢 Monitor Cesare attivo! /status o /test")
+    check_task = asyncio.create_task(periodic_check())
+
+    print("🟢 Monitor LIVE - Test /status!")
     await app.run_polling(drop_pending_updates=True)
 
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("🛑 Stopped")

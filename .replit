@@ -1,4 +1,4 @@
-entrypoint = "main.py"
+entrypoint = "cesare_monitor.py"
 modules = ["python-3.11"]
 
 [nix]
